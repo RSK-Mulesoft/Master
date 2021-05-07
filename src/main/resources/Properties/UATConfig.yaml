@@ -1,0 +1,17 @@
+title: UAT Sandbox Configuration
+http:
+  port: "8081"
+  
+salesforce:
+  port: "8081"
+  basepath: "/"
+  timeout: "120000"
+  protocol: "HTTP"
+  username: "satya@summittech360.com"
+  password: "2bMore$ecure"
+  securityToken: "58HHiHbKwM0PTW4UVYkFb6Dm"
+  basicAuthEndpoint: "https://test.salesforce.com/services/Soap/u/50.0"
+  consumerKey: "3MVG9XmM8CUVepGZDLbd5VPlTkyoE_muHd9d_ts0fRknosDbB_2d_5g3NpnrxvWgF8Ccq7emg5zEaK15TFHDn"
+  consumerSecret: "6B3805F1100DA71CB61DE6AE3F43FF6971C299257B7888B41DE5868695635184"
+  authTokenEndpoint: "https://learninga-z--sandbox.lightning.force.com/services/oauth2/token"
+  clientid: "TestClientId"

@@ -1,0 +1,13 @@
+title: Sandbox Configuration
+http:
+  port: "8081"
+  
+salesforce:
+  port: "8081"
+  basepath: "/"
+  timeout: "120000"
+  protocol: "HTTP"
+  username: "rsk@absyz.com"
+  password: "Hanuman875259"
+  securityToken: "taGMf3psrKJPOkplrpmRbmrNu"
+  clientid: "TestClientId"

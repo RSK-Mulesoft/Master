@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:anypoint-mq="http://www.mulesoft.org/schema/mule/anypoint-mq" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/anypoint-mq http://www.mulesoft.org/schema/mule/anypoint-mq/current/mule-anypoint-mq.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="3b4709a8-bd6f-434a-8d84-7cb2fb295cdc" file="Properties/${env}Config.yaml" />
+	
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="cfdaba22-9c70-4e42-819f-976d3b41d030" >
+		<http:listener-connection host="0.0.0.0" port="${http.port}" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="dc4d0769-c067-4260-9679-57123372649c" >
+		<salesforce:basic-connection username="${salesforce.username}" password="${salesforce.password}" securityToken="${salesforce.securityToken}" url="${salesforce.basicAuthEndpoint}"/>
+	</salesforce:sfdc-config>
+	<anypoint-mq:config name="Anypoint_MQ_Config" doc:name="Anypoint MQ Config" doc:id="a4e26360-7a1d-4555-9554-5eb5e0f4f4a1" >
+		<anypoint-mq:connection url="https://mq-us-west-2.anypoint.mulesoft.com/api/v1"/>
+	</anypoint-mq:config>
+	<flow name="LAZOptOut" doc:id="1c7473e2-487c-4b44-8b6d-4172ada3d9c3" >
+		<http:listener doc:name="LAZOptOut Listener" doc:id="1ae72093-f426-4fd6-8eaf-8ccf60158bbf" config-ref="HTTP_Listener_config" path="/optout" allowedMethods="POST"/>
+		<ee:transform doc:name="Prepare the payload" doc:id="e3c312a5-f185-4655-a5d8-f2b73f979871" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="emailAddresses" ><![CDATA[%dw 2.0
+output application/json
+---
+"(" ++ (flatten(payload.emailAddress filter ($!='')) map "'$'" joinBy "," as String)  ++ ")"]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="bdcd6359-155f-4f9f-8267-5e6e389188c7" />
+		<salesforce:query doc:name="Get Contacts from Emails" doc:id="98ab1062-8190-4a93-95e1-3e9792f9404e" config-ref="Salesforce_Config" readTimeoutUnit="NANOSECONDS" target="contactsReturned">
+						<salesforce:salesforce-query><![CDATA[select ID, Email, HasOptedOutOfEmail from contact where Email IN :emails]]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	emails : vars.emailAddresses
+}]]]></salesforce:parameters>
+					</salesforce:query>
+		<salesforce:query doc:name="Get Leads from Emails" doc:id="d95e4412-17f3-46b9-b3d6-3d045a299340" config-ref="Salesforce_Config" target="leadsReturned">
+			<salesforce:salesforce-query ><![CDATA[select ID, Email, HasOptedOutOfEmail from lead where Email IN :emails]]></salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	emails : vars.emailAddresses
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<ee:transform doc:name="Form ContactsToUpdate" doc:id="5fde14cb-4ba7-4482-a215-fca876803b0d" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="contactsToUpdate" ><![CDATA[%dw 2.0
+output application/json
+---
+flatten(payload map ((item, index) -> {
+  records: vars.contactsReturned map ((contact, index) -> {
+      Email: if(contact.Email == item.emailAddress) contact.Email else null,
+      HasOptedOutOfEmail: if(item.optInStatus == 'IN') true else false,
+      Id: contact.Id
+  })filter ($.Email != null)
+})distinctBy ($))  ]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Flatten ContactsToUpdate" doc:id="5f897d54-c4c5-4657-bfa8-980bdc78ff9c" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="contactsToUpdate" ><![CDATA[%dw 2.0
+output application/json
+---
+flatten(vars.contactsToUpdate.records)  ]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Form leadsToUpdate" doc:id="4aa3da99-e0ca-4366-a735-c91474c3cbf8" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="leadsToUpdate" ><![CDATA[%dw 2.0
+output application/json
+---
+flatten(payload map ((item, index) -> {
+  records: vars.leadsReturned map ((lead, index) -> {
+      Email: if(lead.Email == item.emailAddress) lead.Email else null,
+      HasOptedOutOfEmail: if(item.optInStatus == 'IN') true else false,
+      Id: lead.Id
+  })filter ($.Email != null)
+})distinctBy ($))  ]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Flatten leadsToUpdate" doc:id="ae2bba98-a783-40ea-bae5-febb7350f6f8" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="leadsToUpdate" ><![CDATA[%dw 2.0
+output application/json
+---
+flatten(vars.leadsToUpdate.records)  ]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="e83f4e82-85b2-4147-8339-18b2a6c7bd23" />
+		<salesforce:update doc:name="Update ContactstoUpdate" doc:id="e16f0172-5fd9-451d-a1d0-347c26c610cf" config-ref="Salesforce_Config" type="Contact">
+			<salesforce:records ><![CDATA[#[vars.contactsToUpdate]]]></salesforce:records>
+		</salesforce:update>
+		<salesforce:update doc:name="Update LeadstoUpdate" doc:id="877fe369-9b08-499a-9cb9-c63802f4b61c" config-ref="Salesforce_Config" type="Lead">
+			<salesforce:records ><![CDATA[#[vars.leadsToUpdate]]]></salesforce:records>
+		</salesforce:update>
+		<logger level="INFO" doc:name="Logger" doc:id="aac2323d-625d-4c88-925b-0cbb7eb155c5" />
+		<!--<foreach doc:name="For Each Contact" doc:id="04fe2bed-63de-43b5-ab8a-407e3420f743" collection="vars.contactsReturned">
+			<logger level="INFO" doc:name="Logger" doc:id="08632e09-2d75-470c-935e-6bc85c8aa1dd" message="vars.rootMessage.typedValue"/>
+			<foreach doc:name="For Each" doc:id="cc84ee68-ba69-43c4-b971-076bbf47c8e4" collection="vars.rootMessage.typedValue" rootMessageVariableName="contactRoot">
+				<logger level="INFO" doc:name="Logger" doc:id="d0050211-421a-4250-bfa0-74ebeb4880e4" />
+			</foreach>
+			<ee:transform doc:name="Transform Message" doc:id="5e19dccf-f925-4de7-b1bf-985ab8bb4504" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="contactToUpdate" ><![CDATA[%dw 2.0
+output application/json
+-&#45;&#45;
+{
+	"id": payload.Id,
+}]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+		</foreach>  -->
+	</flow>
+	<flow name="LAZOptOutFlow" doc:id="0430fc2f-1fcc-4e4a-94d1-6abd63b3dee4" >
+		<anypoint-mq:publish doc:name="Publish" doc:id="828c612a-ab40-4316-887e-c36d7fdf848c" config-ref="Anypoint_MQ_Config" destination="https://mq-us-west-2.anypoint.mulesoft.com/api/v1"/>
+	</flow>
+</mule>

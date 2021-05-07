@@ -1,0 +1,13 @@
+title: Production Configuration
+http:
+  port: "8081"
+  
+salesforce:
+  port: "8081"
+  basepath: "/"
+  timeout: "120000"
+  protocol: "HTTP"
+  username: "rsk@absyz.com"
+  password: "Hanuman875259"
+  securityToken: "kjPVC96otaG3vik9J4VOU883"
+  clientid: "TestClientId"

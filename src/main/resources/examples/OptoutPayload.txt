@@ -1,0 +1,32 @@
+[
+    {
+        "emailAddress": "sean@edge.com",
+        "optInStatus": "IN",
+        "optInTypeId": 2
+    },
+    {
+        "emailAddress": "lboyle@uog.com",
+        "optInStatus": "IN",
+        "optInTypeId": 2
+    },
+    {
+        "emailAddress": "frontier77@163.com",
+        "optInStatus": "IN",
+        "optInTypeId": 2
+    },
+    {
+        "emailAddress": "tanaka.sandi@gmail.com",
+        "optInStatus": "OUT",
+        "optInTypeId": 2
+    },
+    {
+        "emailAddress": "Krisca@kimo.com",
+        "optInStatus": "OUT",
+        "optInTypeId": 2
+    },
+    {
+        "emailAddress": "kchung1016@gmail.com",
+        "optInStatus": "OUT",
+        "optInTypeId": 2
+    }
+]
